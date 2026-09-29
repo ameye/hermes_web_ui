@@ -11,10 +11,11 @@ WORKDIR /opt
 RUN rm -rf /opt/hermes-agent && \
     git clone https://github.com/NousResearch/hermes-agent.git /opt/hermes-agent
 
-# 3. Create /app/venv explicitly and install agent + runtime requirements using uv
+# 3. Create /app/venv explicitly and install packages into it
+ENV VIRTUAL_ENV=/app/venv
 RUN uv venv /app/venv --python /usr/local/bin/python3 && \
-    uv pip install --system=false --python /app/venv/bin/python -e /opt/hermes-agent && \
-    uv pip install --system=false --python /app/venv/bin/python python-dotenv requests httpx
+    uv pip install -e /opt/hermes-agent && \
+    uv pip install python-dotenv requests httpx
 
 # 4. Fix permissions so the unprivileged runtime user (1000:1000) owns both folders
 RUN chown -R 1000:1000 /opt/hermes-agent /app/venv
