@@ -17,10 +17,10 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
     uv pip install -e /opt/hermes-agent && \
     uv pip install python-dotenv requests httpx
 
-# 4. Fix permissions so the unprivileged runtime user (1000:1000) owns both folders
-RUN chown -R 1000:1000 /opt/hermes-agent /app/venv
+# 4. Fix permissions
+RUN chown -R 1000:1000 /opt/hermes-agent /app/venv 2>/dev/null || true
 
-# 5. Switch back to hermeswebui user
-USER hermeswebui
+# 5. Keep as root so the base image entrypoint can initialize UID/GID correctly
+USER root
 
 WORKDIR /app
