@@ -29,7 +29,8 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
         psutil \
         openai \
         rich \
-        prompt-toolkit && \
+        prompt-toolkit \
+        snowballstemmer && \
     uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent && \
     uv pip install --python /app/venv/bin/python --no-cache --reinstall \
         pydantic-core \
