@@ -3,8 +3,10 @@ FROM ghcr.io/nesquena/hermes-webui:latest
 
 USER root
 
-# 1. Install system utilities
-RUN apt-get update && apt-get install -y --no-install-recommends git curl procps && rm -rf /var/lib/apt/lists/*
+# 1. Install system utilities + Rust build tools (needed if pydantic-core compiles from source)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl procps build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # 2. Clone the latest agent source directly into /opt/hermes-agent
 WORKDIR /opt
@@ -16,11 +18,11 @@ RUN rm -rf /opt/hermes-agent /opt/hermes && \
 RUN mkdir -p /home/hermeswebui/.hermes && \
     ln -s /opt/hermes-agent /home/hermeswebui/.hermes/hermes-agent
 
-# 4. Create /app/venv and install all dependencies cleanly
+# 4. Create base /app/venv using Python 3.12
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN uv venv /app/venv --python python3 && \
+RUN uv venv /app/venv --python python3.12 && \
     uv pip install --python /app/venv/bin/python --no-cache \
         python-dotenv \
         requests \
@@ -35,16 +37,13 @@ RUN uv venv /app/venv --python python3 && \
         pydantic-core \
         pydantic
 
-# 5. Build-time verification: ensures the C extension is present and functional
-RUN /app/venv/bin/python -c "import pydantic_core; print('>>> pydantic_core successfully loaded <<<')"
-
-# 6. Place hermes.pth in Python site-packages
+# 5. Place hermes.pth in Python site-packages
 RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')"
 
-# 7. Ensure correct permissions for UID 1000
-RUN chown -R 1000:1000 /opt/hermes-agent /opt/hermes /app/venv /home/hermeswebui 2>/dev/null || true
+# 6. Ensure clean permissions and clear any stale installs
+RUN rm -rf /home/hermeswebui/.hermes/installs && \
+    chown -R 1000:1000 /opt/hermes-agent /opt/hermes /app/venv /home/hermeswebui 2>/dev/null || true
 
-# 8. Keep root so hermeswebui_init.bash handles runtime UID/GID switching
 USER root
 
 WORKDIR /app
