@@ -38,11 +38,10 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
 # 5. Place hermes.pth in Python site-packages
 RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')"
 
-# 6. Runtime cleanup script: Runs every time the container boots up
-# This deletes any cached Python 3.14 installs from persistent volumes before launching the app
+# 6. Runtime cleanup script: clears stale Python caches before launching Web UI
 RUN printf '#!/bin/bash\n\
 rm -rf /home/hermeswebui/.hermes/installs\n\
-exec /entrypoint.sh "$@"\n' > /app/start.sh && \
+exec /hermeswebui_init.bash "$@"\n' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # 7. Set permissions
