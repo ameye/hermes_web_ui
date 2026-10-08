@@ -16,16 +16,13 @@ RUN rm -rf /opt/hermes-agent /opt/hermes && \
 RUN mkdir -p /home/hermeswebui/.hermes && \
     ln -s /opt/hermes-agent /home/hermeswebui/.hermes/hermes-agent
 
-# 4. Install dependencies into /app/venv
-# Force standard binary wheels for pydantic and pydantic-core
+# 4. Install dependencies directly into the existing venv using uv
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN /app/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /app/venv/bin/pip install --no-cache-dir --only-binary=:all: \
+RUN uv pip install --python /app/venv/bin/python --no-cache \
         pydantic-core \
-        pydantic && \
-    /app/venv/bin/pip install --no-cache-dir \
+        pydantic \
         python-dotenv \
         requests \
         httpx \
@@ -34,10 +31,10 @@ RUN /app/venv/bin/pip install --no-cache-dir --upgrade pip && \
         openai \
         rich \
         prompt-toolkit && \
-    /app/venv/bin/pip install --no-cache-dir -e /opt/hermes-agent
+    uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent
 
-# Verify pydantic-core loads correctly during build
-RUN /app/venv/bin/python -c "import pydantic_core; print('pydantic_core successfully loaded')"
+# Verify the C-extension loads correctly during build
+RUN /app/venv/bin/python -c "import pydantic_core; print('>>> pydantic_core successfully loaded <<<')"
 
 # 5. Place hermes.pth in Python site-packages
 RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')" && \
