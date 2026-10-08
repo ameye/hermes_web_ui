@@ -16,13 +16,12 @@ RUN rm -rf /opt/hermes-agent /opt/hermes && \
 RUN mkdir -p /home/hermeswebui/.hermes && \
     ln -s /opt/hermes-agent /home/hermeswebui/.hermes/hermes-agent
 
-# 4. Install dependencies directly into the existing venv using uv
+# 4. Create /app/venv and install all dependencies cleanly
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-RUN uv pip install --python /app/venv/bin/python --no-cache \
-        pydantic-core \
-        pydantic \
+RUN uv venv /app/venv --python python3 && \
+    uv pip install --python /app/venv/bin/python --no-cache \
         python-dotenv \
         requests \
         httpx \
@@ -31,19 +30,21 @@ RUN uv pip install --python /app/venv/bin/python --no-cache \
         openai \
         rich \
         prompt-toolkit && \
-    uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent
+    uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent && \
+    uv pip install --python /app/venv/bin/python --no-cache --reinstall \
+        pydantic-core \
+        pydantic
 
-# Verify the C-extension loads correctly during build
+# 5. Build-time verification: ensures the C extension is present and functional
 RUN /app/venv/bin/python -c "import pydantic_core; print('>>> pydantic_core successfully loaded <<<')"
 
-# 5. Place hermes.pth in Python site-packages
-RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')" && \
-    if [ -d "/usr/local/lib/python3.12/site-packages" ]; then echo "/opt/hermes-agent" > /usr/local/lib/python3.12/site-packages/hermes_agent.pth; fi
+# 6. Place hermes.pth in Python site-packages
+RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')"
 
-# 6. Ensure correct permissions for UID 1000
+# 7. Ensure correct permissions for UID 1000
 RUN chown -R 1000:1000 /opt/hermes-agent /opt/hermes /app/venv /home/hermeswebui 2>/dev/null || true
 
-# 7. Keep root so hermeswebui_init.bash handles runtime UID/GID switching
+# 8. Keep root so hermeswebui_init.bash handles runtime UID/GID switching
 USER root
 
 WORKDIR /app
