@@ -34,7 +34,7 @@ RUN uv pip install --system --no-cache \
         prompt-toolkit \
         python-dotenv
 
-# Initialize /app/venv and install the hermes-agent package with full dependency resolution
+# Initialize /app/venv and install the hermes-agent package using editable mode (-e)
 RUN uv venv /app/venv --python /usr/local/bin/python3 && \
     uv pip install --python /app/venv/bin/python --no-cache \
         "typing_extensions>=4.12.2" \
@@ -47,7 +47,7 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
         rich \
         prompt-toolkit \
         python-dotenv && \
-    uv pip install --python /app/venv/bin/python --no-cache /opt/hermes-agent && \
+    uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent && \
     uv pip install --python /app/venv/bin/python --no-cache --upgrade \
         "pydantic>=2.7.0" \
         pydantic-core \
