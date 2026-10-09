@@ -6,13 +6,12 @@ USER root
 # 1. Install system utilities
 RUN apt-get update && apt-get install -y --no-install-recommends git curl procps && rm -rf /var/lib/apt/lists/*
 
-# 2. Clone the latest agent source directly into /opt/hermes-agent and patch Generator typing
+# 2. Clone the latest agent source and apply targeted patch to turn_scripted_prelude.py
 WORKDIR /opt
 RUN rm -rf /opt/hermes-agent /opt/hermes && \
     git clone https://github.com/NousResearch/hermes-agent.git /opt/hermes-agent && \
     ln -s /opt/hermes-agent /opt/hermes && \
-    # Bake fix: Patch any 2-argument Generator annotations inside hermes-agent to 3 arguments
-    find /opt/hermes-agent -name "*.py" -exec sed -i -E 's/Generator\[([^,]+),[[:space:]]*([^,\]]+)\]/Generator[\1, \2, None]/g' {} +
+    sed -i 's/Prelude = Generator\[tuple\[str, str, dict\], Optional\[str\]\]/Prelude = Generator[tuple[str, str, dict], Optional[str], None]/g' /opt/hermes-agent/agent/turn_scripted_prelude.py
 
 # 3. Create standard symlink where hermeswebui_init.bash looks by default
 RUN mkdir -p /home/hermeswebui/.hermes && \
@@ -22,8 +21,9 @@ RUN mkdir -p /home/hermeswebui/.hermes && \
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
-# Install into system python first to prevent fallback misses
+# Install core runtime dependencies into system python
 RUN uv pip install --system --no-cache \
+        "typing_extensions>=4.12.2" \
         snowballstemmer \
         requests \
         httpx \
@@ -34,10 +34,11 @@ RUN uv pip install --system --no-cache \
         prompt-toolkit \
         python-dotenv
 
-# Initialize /app/venv and install agent dependencies
+# Initialize /app/venv and install the hermes-agent package with full dependency resolution
 RUN uv venv /app/venv --python /usr/local/bin/python3 && \
     uv pip install --python /app/venv/bin/python --no-cache \
-        python-dotenv \
+        "typing_extensions>=4.12.2" \
+        snowballstemmer \
         requests \
         httpx \
         "ruamel.yaml>=0.18.0" \
@@ -45,11 +46,12 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
         openai \
         rich \
         prompt-toolkit \
-        snowballstemmer && \
-    uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent && \
-    uv pip install --python /app/venv/bin/python --no-cache --reinstall \
+        python-dotenv && \
+    uv pip install --python /app/venv/bin/python --no-cache /opt/hermes-agent && \
+    uv pip install --python /app/venv/bin/python --no-cache --upgrade \
+        "pydantic>=2.7.0" \
         pydantic-core \
-        pydantic
+        "typing_extensions>=4.12.2"
 
 # 5. Place hermes.pth in Python site-packages (both system and venv)
 RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')" && \
