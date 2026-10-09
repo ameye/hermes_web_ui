@@ -6,11 +6,13 @@ USER root
 # 1. Install system utilities
 RUN apt-get update && apt-get install -y --no-install-recommends git curl procps && rm -rf /var/lib/apt/lists/*
 
-# 2. Clone the latest agent source directly into /opt/hermes-agent
+# 2. Clone the latest agent source directly into /opt/hermes-agent and patch Generator typing
 WORKDIR /opt
 RUN rm -rf /opt/hermes-agent /opt/hermes && \
     git clone https://github.com/NousResearch/hermes-agent.git /opt/hermes-agent && \
-    ln -s /opt/hermes-agent /opt/hermes
+    ln -s /opt/hermes-agent /opt/hermes && \
+    # Bake fix: Patch any 2-argument Generator annotations inside hermes-agent to 3 arguments
+    find /opt/hermes-agent -name "*.py" -exec sed -i -E 's/Generator\[([^,]+),[[:space:]]*([^,\]]+)\]/Generator[\1, \2, None]/g' {} +
 
 # 3. Create standard symlink where hermeswebui_init.bash looks by default
 RUN mkdir -p /home/hermeswebui/.hermes && \
