@@ -16,10 +16,23 @@ RUN rm -rf /opt/hermes-agent /opt/hermes && \
 RUN mkdir -p /home/hermeswebui/.hermes && \
     ln -s /opt/hermes-agent /home/hermeswebui/.hermes/hermes-agent
 
-# 4. Bake dependencies directly into /app/venv using uv and the base python
+# 4. Bake dependencies into BOTH system python and /app/venv using uv
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
+# Install into system python first to prevent fallback misses
+RUN uv pip install --system --no-cache \
+        snowballstemmer \
+        requests \
+        httpx \
+        "ruamel.yaml>=0.18.0" \
+        psutil \
+        openai \
+        rich \
+        prompt-toolkit \
+        python-dotenv
+
+# Initialize /app/venv and install agent dependencies
 RUN uv venv /app/venv --python /usr/local/bin/python3 && \
     uv pip install --python /app/venv/bin/python --no-cache \
         python-dotenv \
@@ -36,11 +49,15 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
         pydantic-core \
         pydantic
 
-# 5. Place hermes.pth in Python site-packages
-RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')"
+# 5. Place hermes.pth in Python site-packages (both system and venv)
+RUN /app/venv/bin/python -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')" && \
+    python3 -c "import site, os; p = site.getsitepackages()[0]; open(os.path.join(p, 'hermes_agent.pth'), 'w').write('/opt/hermes-agent\n')" && \
+    python3 -c "import site, os; p = site.getsitepackages()[0]; venv_p = '/app/venv/lib/python' + '.'.join(map(str, __import__('sys').version_info[:2])) + '/site-packages'; open(os.path.join(p, 'app_venv.pth'), 'w').write(venv_p + '\n')"
 
-# 6. Runtime cleanup script: clears stale Python caches before launching Web UI
+# 6. Runtime cleanup & environment persistence
 RUN printf '#!/bin/bash\n\
+export VIRTUAL_ENV=/app/venv\n\
+export PATH="/app/venv/bin:$PATH"\n\
 rm -rf /home/hermeswebui/.hermes/installs\n\
 exec /hermeswebui_init.bash "$@"\n' > /app/start.sh && \
     chmod +x /app/start.sh
