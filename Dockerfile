@@ -32,7 +32,8 @@ RUN uv pip install --system --no-cache \
         openai \
         rich \
         prompt-toolkit \
-        python-dotenv
+        python-dotenv \
+        numpy
 
 # Initialize /app/venv and install the hermes-agent package using editable mode (-e)
 RUN uv venv /app/venv --python /usr/local/bin/python3 && \
@@ -46,7 +47,8 @@ RUN uv venv /app/venv --python /usr/local/bin/python3 && \
         openai \
         rich \
         prompt-toolkit \
-        python-dotenv && \
+        python-dotenv \
+        numpy && \
     uv pip install --python /app/venv/bin/python --no-cache -e /opt/hermes-agent && \
     uv pip install --python /app/venv/bin/python --no-cache --upgrade \
         "pydantic>=2.7.0" \
